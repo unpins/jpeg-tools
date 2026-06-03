@@ -1,18 +1,17 @@
 # jpeg-tools
 
 Standalone build of the [libjpeg-turbo](https://libjpeg-turbo.org/) command-line
-tools — `cjpeg`, `djpeg`, `jpegtran`, `rdjpgcom` and `wrjpgcom` — as a single
-self-contained binary.
+programs as a single self-contained binary.
 
 [![CI](https://github.com/unpins/jpeg-tools/actions/workflows/jpeg-tools.yml/badge.svg)](https://github.com/unpins/jpeg-tools/actions)
 ![Linux](https://img.shields.io/badge/Linux-✓-success?logo=linux&logoColor=white)
 ![macOS](https://img.shields.io/badge/macOS-✓-success?logo=apple&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-✓-success?logo=windows&logoColor=white)
 
-The classic JPEG toolbox from the SIMD-accelerated libjpeg-turbo: compress to
+The classic JPEG programs from the SIMD-accelerated libjpeg-turbo: compress to
 JPEG, decompress from JPEG, transform JPEGs losslessly, and read/write the
 textual comment marker — the same `libjpeg` that FFmpeg, ImageMagick, chafa and
-countless image pipelines link, with its CLIs in one binary.
+countless image pipelines link, with its programs in one binary.
 
 Part of the [unpins](https://unpins.org) project — native single-binary builds with no third-party runtime dependencies.
 
@@ -21,11 +20,9 @@ Part of the [unpins](https://unpins.org) project — native single-binary builds
 Run a program with [unpin](https://github.com/unpins/unpin):
 
 ```bash
-unpin jpeg-tools cjpeg -quality 90 -outfile out.jpg in.ppm     # encode PPM/BMP/GIF/Targa -> JPEG
-unpin jpeg-tools djpeg -outfile out.ppm in.jpg                 # decode JPEG -> PPM/BMP/GIF/Targa
-unpin jpeg-tools jpegtran -rotate 90 -outfile rot.jpg in.jpg   # lossless rotate/crop/optimize
-unpin jpeg-tools wrjpgcom -comment "shot on a phone" in.jpg > out.jpg   # write a comment marker
-unpin jpeg-tools rdjpgcom out.jpg                              # read comment markers
+unpin jpeg-tools cjpeg -quality 90 -outfile out.jpg in.ppm
+unpin jpeg-tools djpeg -outfile out.ppm in.jpg
+unpin jpeg-tools jpegtran -rotate 90 -outfile rot.jpg in.jpg
 ```
 
 To install the programs onto your PATH:
@@ -33,6 +30,18 @@ To install the programs onto your PATH:
 ```bash
 unpin install jpeg-tools
 ```
+
+`unpin install jpeg-tools` creates the `cjpeg`, `djpeg`, `jpegtran`, `rdjpgcom`, and `wrjpgcom` commands.
+
+## Programs
+
+| command | what it does |
+| --- | --- |
+| `cjpeg` | encode PPM/BMP/GIF/Targa → JPEG |
+| `djpeg` | decode JPEG → PPM/BMP/GIF/Targa |
+| `jpegtran` | lossless rotate / crop / optimize JPEGs |
+| `rdjpgcom` | read JPEG comment markers |
+| `wrjpgcom` | write a JPEG comment marker |
 
 ## Build locally
 
