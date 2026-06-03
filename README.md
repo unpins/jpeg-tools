@@ -18,33 +18,20 @@ Part of the [unpins](https://unpins.org) project — native single-binary builds
 
 ## Usage
 
-It is a multicall binary: invoke an applet by name, or pass it as the first
-argument.
+Run a program with [unpin](https://github.com/unpins/unpin):
 
 ```bash
-cjpeg -quality 90 -outfile out.jpg in.ppm     # encode PPM/BMP/GIF/Targa -> JPEG
-djpeg -outfile out.ppm in.jpg                 # decode JPEG -> PPM/BMP/GIF/Targa
-jpegtran -rotate 90 -outfile rot.jpg in.jpg   # lossless rotate/crop/optimize
-wrjpgcom -comment "shot on a phone" in.jpg > out.jpg   # write a comment marker
-rdjpgcom out.jpg                              # read comment markers
-
-jpeg-tools cjpeg -version                     # or dispatch through the bare name
+unpin jpeg-tools cjpeg -quality 90 -outfile out.jpg in.ppm     # encode PPM/BMP/GIF/Targa -> JPEG
+unpin jpeg-tools djpeg -outfile out.ppm in.jpg                 # decode JPEG -> PPM/BMP/GIF/Targa
+unpin jpeg-tools jpegtran -rotate 90 -outfile rot.jpg in.jpg   # lossless rotate/crop/optimize
+unpin jpeg-tools wrjpgcom -comment "shot on a phone" in.jpg > out.jpg   # write a comment marker
+unpin jpeg-tools rdjpgcom out.jpg                              # read comment markers
 ```
 
-Run `cjpeg -h` (or `djpeg`/`jpegtran -h`) for the full option list.
-
-## Installation
-
-Install with [unpin](https://github.com/unpins/unpin):
+To install the programs onto your PATH:
 
 ```bash
-unpin jpeg-tools
-```
-
-Or run without installing:
-
-```bash
-unpin run jpeg-tools -- cjpeg -version
+unpin install jpeg-tools
 ```
 
 ## Build locally
