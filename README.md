@@ -1,7 +1,6 @@
 # jpeg-tools
 
-Standalone build of the [libjpeg-turbo](https://libjpeg-turbo.org/) command-line
-programs as a single self-contained binary.
+The [libjpeg-turbo](https://libjpeg-turbo.org/) command-line programs as a single self-contained binary, built natively for Linux, macOS, and Windows.
 
 [![CI](https://github.com/unpins/jpeg-tools/actions/workflows/jpeg-tools.yml/badge.svg)](https://github.com/unpins/jpeg-tools/actions)
 ![Linux](https://img.shields.io/badge/Linux-✓-success?logo=linux&logoColor=white)
@@ -13,7 +12,7 @@ JPEG, decompress from JPEG, transform JPEGs losslessly, and read/write the
 textual comment marker — the same `libjpeg` that FFmpeg, ImageMagick, chafa and
 countless image pipelines link, with its programs in one binary.
 
-Part of the [unpins](https://unpins.org) project — native single-binary builds with no third-party runtime dependencies.
+Part of the [unpins](https://unpins.org) catalog; install it with [`unpin`](https://github.com/unpins/unpin): `unpin install jpeg-tools`.
 
 ## Usage
 
