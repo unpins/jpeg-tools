@@ -69,7 +69,7 @@
       # nixpkgs graft needed despite name ≠ nixpkgs attr.
       # Multicall: `jpeg-tools <applet> [args]` dispatches by argv[0]; the bare
       # binary takes the applet as its first arg. Smoke through that form.
-      smoke = [ "cjpeg" "-version" ];
+      smoke = [ "--unpin-program=cjpeg" "-version" ];
       smokePattern = "libjpeg-turbo";
 
       # Native (pkgsStatic): pure C, libjpeg.a folds into the binary; musl links
