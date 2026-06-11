@@ -62,10 +62,11 @@
     ulib.mkStandaloneFlake {
       inherit self;
       name = "jpeg-tools";
-      # No man embed: matches the avif/jxl/aom/heif multicall precedent and
-      # sidesteps the name≠nixpkgs-attr man-graft path. (libjpeg-turbo does ship
-      # cjpeg/djpeg/jpegtran man pages; can be revisited via pkgsAttr later.)
-      embedMan = false;
+      # Man embedded (embedMan defaults to true): multicall.nix re-stages
+      # libjpeg-turbo's per-tool doc/<tool>.1 into the build's share/man (cmake's
+      # install, which the custom installPhase replaced, would have done this),
+      # so both the native and mingw-cross builds harvest their OWN man — no
+      # nixpkgs graft needed despite name ≠ nixpkgs attr.
       # Multicall: `jpeg-tools <applet> [args]` dispatches by argv[0]; the bare
       # binary takes the applet as its first arg. Smoke through that form.
       smoke = [ "cjpeg" "-version" ];

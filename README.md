@@ -42,6 +42,11 @@ unpin install jpeg-tools
 | `rdjpgcom` | read JPEG comment markers |
 | `wrjpgcom` | write a JPEG comment marker |
 
+## Man pages
+
+`cjpeg.1`, `djpeg.1`, `jpegtran.1`, `rdjpgcom.1` and `wrjpgcom.1` are embedded in
+the binary — read with `unpin man jpeg-tools <tool>` (e.g. `unpin man jpeg-tools cjpeg`).
+
 ## Build locally
 
 ```bash

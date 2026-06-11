@@ -162,6 +162,19 @@ ${lib.multicallDispatcherC { inherit name; }}
       while IFS= read -r a; do
         [ -n "$a" ] && ln -s ${name} "$out/bin/$a"
       done < multicall/apps.list
+
+      # libjpeg-turbo ships a man page per tool as a source file (doc/<tool>.1);
+      # cmake's install — which we replaced with this custom phase — would have
+      # placed them under share/man/man1. Re-stage exactly the pages for the
+      # applets we actually ship so embedMan harvests them into the binary's ZIP
+      # (`unpin man jpeg-tools <tool>`). Native and the mingw cross both run this,
+      # so each target harvests its OWN man (no nixpkgs graft; name ≠ attr).
+      mkdir -p "$out/share/man/man1"
+      while IFS= read -r a; do
+        [ -n "$a" ] || continue
+        m="$(find "$NIX_BUILD_TOP" -path "*/doc/$a.1" -print -quit 2>/dev/null)"
+        [ -n "$m" ] && install -m644 "$m" "$out/share/man/man1/$a.1"
+      done < multicall/apps.list
       runHook postInstall
     '';
   });
