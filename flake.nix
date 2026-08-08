@@ -13,30 +13,28 @@
   # but the library also ships five user-facing JPEG CLIs that nothing packaged
   # yet: cjpeg (encode), djpeg (decode), jpegtran (lossless transform), and the
   # comment-marker tools rdjpgcom / wrjpgcom. Here we turn the tools on
-  # (WITH_TOOLS, default upstream) and post-link all five into one multicall
-  # `jpeg-tools` binary (multicall.nix), following the avif/jxl/aom one-pkg-one-
-  # bin pattern. The library is named after the tools because CI resolves
+  # (WITH_TOOLS, default upstream) and let nix-lib self-fold all five into one
+  # multicall `jpeg-tools` binary, following the avif/jxl/aom one-pkg-one-bin
+  # pattern. The library is named after the tools because CI resolves
   # result/bin/<name> (same convention as opus-tools / vorbis-tools).
   #
   # Pure C — no libstdc++/libc++ runtime to fold (simpler than the C++ codec
-  # CLIs): musl/darwin link libc statically with nothing extra, mingw just needs
-  # `-static` to keep libgcc/libwinpthread out of companion DLLs. No per-target
-  # lib fix: nix-lib carries libjpeg-turbo's own (riscv `simdcoverage`, no-LTO).
+  # CLIs). No per-target lib fix: nix-lib carries libjpeg-turbo's own (riscv
+  # `simdcoverage`, no-LTO).
   outputs = { self, unpins-lib }:
     let
       ulib = unpins-lib.lib;
 
       # libjpeg-turbo with the CLI tools (cjpeg/djpeg/jpegtran/rdjpgcom/wrjpgcom)
-      # enabled, wired onto a (static) scope. Shared by the engine path
-      # (engineFold, returned directly) and the windows objcopy fold.
-      withTools = { engineFold }: scope:
+      # enabled, wired onto a (static) scope. Every target — native, darwin and
+      # the mingw cross — builds through this.
+      withTools = scope:
         let
           lib = scope.lib;
-          # bmpsizetest below guards the engine path's -flto, and only runs where
-          # the build host can execute the result (a cross target would need
-          # qemu). Everywhere else the test programs are dead weight — don't
-          # build them either.
-          check = engineFold && scope.stdenv.buildPlatform.canExecute scope.stdenv.hostPlatform;
+          # bmpsizetest below guards -flto, and only runs where the build host
+          # can execute the result (a cross target would need qemu). Everywhere
+          # else the test programs are dead weight — don't build them either.
+          check = scope.stdenv.buildPlatform.canExecute scope.stdenv.hostPlatform;
         in
         scope.libjpeg.overrideAttrs (old: {
           # WITH_TOOLS (default on) builds the CLIs; turn the TurboJPEG API +
@@ -73,14 +71,7 @@
           # self-fold's `programs = [ cjpeg … ]` can't find it. Set it, and drop
           # the now-redundant install RENAME. rdjpgcom/wrjpgcom already build
           # under their plain names.
-          #
-          # BOTH ARE ENGINE-ONLY, each fatal to the objcopy fold windows uses:
-          # objcopy does not read a bitcode .o ("plugin needed to handle lto
-          # object"), and multicall.nix templates off `link.txt`'s ` -o
-          # cjpeg-static` — renamed, its sed silently no-ops and the link loses
-          # the dispatcher, leaving no `main` at all.
-          postPatch = (old.postPatch or "")
-            + lib.optionalString engineFold (
+          postPatch = (old.postPatch or "") + (
             # darwin needs MORE than the five: the hook's `ld.lld -r` is the ELF
             # driver, and a loose Mach-O object is a hard error there ("unknown
             # file type") where on ELF it is merely dropped into the sidecar. So
@@ -112,25 +103,13 @@
             '');
         });
 
-      # Windows fold: post-link the five CLIs into one binary. Linux AND darwin
-      # go through the engine self-fold instead (mingw has no engine).
-      mk = pkgs: scope:
-        import ./multicall.nix { lib = scope.lib // ulib; }
-          {
-            pkgs = scope;
-            libjpeg = withTools { engineFold = false; } scope;
-            extraLinkFlags = if scope.stdenv.hostPlatform.isMinGW then "-static" else "";
-          };
     in
     ulib.mkStandaloneFlake {
       inherit self;
       name = "jpeg-tools";
-      # Man embedded (embedMan defaults to true): multicall.nix re-stages
-      # libjpeg-turbo's per-tool doc/<tool>.1 into the build's share/man for the
-      # mingw cross (cmake's install, which its custom installPhase replaced,
-      # would have done this); the engine path keeps cmake's own install. Either
-      # way each target harvests its OWN man — no nixpkgs graft needed despite
-      # name ≠ nixpkgs attr.
+      # Man embedded (embedMan defaults to true): every target keeps cmake's own
+      # install, which stages libjpeg-turbo's per-tool doc/<tool>.1 — so each
+      # harvests its OWN man, no nixpkgs graft needed despite name ≠ attr.
       # Multicall: `jpeg-tools <applet> [args]` dispatches by argv[0]; the bare
       # binary takes the applet as its first arg. Smoke through that form.
       smoke = [ "--unpin-program=cjpeg" "-version" ];
@@ -138,12 +117,12 @@
 
       # Build via the unpin-llvm engine + emit a bitcode multicall module: the
       # engine compiles the apps-enabled libjpeg-turbo and the standalone
-      # self-folds the five CLIs into one `jpeg-tools` binary, on Linux and
-      # darwin alike. Only windows (no engine) keeps the objcopy fold in
-      # ./multicall.nix. Pure C — no requires.cxx. pkgsAttr=libjpeg (name ≠ attr).
+      # self-folds the five CLIs into one `jpeg-tools` binary on every target,
+      # windows included. Pure C — no requires.cxx. pkgsAttr=libjpeg (name ≠ attr).
       pkgsAttr = "libjpeg";
       engine = "unpin-llvm";
       multicall = {
+        windows = true;
         programs = [
           { name = "cjpeg"; }
           { name = "djpeg"; }
@@ -155,10 +134,8 @@
 
       # Native (pkgsStatic): pure C, libjpeg.a folds into the binary; musl links
       # libc statically, darwin links only libSystem.
-      build = pkgs: withTools { engineFold = true; } pkgs.pkgsStatic;
+      build = pkgs: withTools pkgs.pkgsStatic;
 
-      # mingw cross: `-static` (in extraLinkFlags) folds libgcc/libwinpthread so
-      # no companion DLLs ride alongside the .exe.
-      windowsBuild = pkgs: mk pkgs (ulib.mingwStaticCross pkgs);
+      windowsBuild = pkgs: withTools (ulib.mingwStaticCross pkgs);
     };
 }
