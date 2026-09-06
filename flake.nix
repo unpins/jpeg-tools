@@ -56,7 +56,55 @@
           # the -flto below is kept as narrow as each platform allows.
           doCheck = check;
           checkPhase = "ctest -R bmpsizetest --output-on-failure --timeout 120";
-          doInstallCheck = false;
+          # The windows .exe cannot be run from here, so the USE_SETMODE fix
+          # below has to be checked where it lands: in the object. `_setmode`
+          # is in the shipped .exe either way (cdjpeg.c pulls it in for
+          # cjpeg/djpeg/jpegtran), so only the per-tool object separates a
+          # working build from the one that silently wrote CRLF into JPEGs.
+          postBuild = (old.postBuild or "") + lib.optionalString scope.stdenv.hostPlatform.isWindows ''
+            for t in rdjpgcom wrjpgcom; do
+              if [ -f "CMakeFiles/$t.dir/flags.make" ]; then
+                f="CMakeFiles/$t.dir/flags.make"; ctx=$(cat "$f")
+              elif [ -f build.ninja ]; then
+                f=build.ninja; ctx=$(grep -B2 -A20 "CMakeFiles/$t.dir/src/$t.c.obj:" build.ninja)
+              else
+                echo "guard: no generated build file to read $t's flags from"; exit 1
+              fi
+              case "$ctx" in
+                *USE_SETMODE*) ;;
+                *) echo "guard: $t is compiled without USE_SETMODE (read from $f) — its"
+                   echo "       stdio stays in text mode and every JPEG it writes to a"
+                   echo "       pipe comes out with each 0x0A expanded to 0x0D 0x0A."
+                   exit 1 ;;
+              esac
+            done
+          '';
+          # `smoke` only runs cjpeg, and only `-version`: an applet that folded
+          # onto the wrong entry point, or a tool whose stdio was left in text
+          # mode, prints the same line. Run all five for real on every target
+          # the builder can execute, against upstream's own test image. The
+          # comment round trip goes through a PIPE on purpose — that is the
+          # path the Windows text-mode bug corrupted, and the one no `-outfile`
+          # covers.
+          doInstallCheck = check;
+          installCheckPhase = ''
+            runHook preInstallCheck
+            _b="''${bin:-$out}/bin"
+            _i=$NIX_BUILD_TOP/$sourceRoot/testimages/testorig.ppm
+            "$_b/cjpeg" -quality 90 -outfile p.jpg "$_i"
+            "$_b/djpeg" -outfile p.ppm p.jpg
+            "$_b/jpegtran" -rotate 90 -outfile p-rot.jpg p.jpg
+            "$_b/wrjpgcom" -comment "unpins round trip" p.jpg > p-com.jpg
+            [ "$("$_b/rdjpgcom" p-com.jpg)" = "unpins round trip" ] || {
+              echo "rdjpgcom did not read back the comment wrjpgcom wrote"; exit 1; }
+            # wrjpgcom only ADDS a marker, so stripping it must give back the
+            # exact bytes cjpeg wrote — a byte the pipe mangled shows up here.
+            "$_b/jpegtran" -copy none -outfile p-strip.jpg p-com.jpg
+            "$_b/jpegtran" -copy none -outfile p-base.jpg p.jpg
+            cmp p-strip.jpg p-base.jpg
+            echo "installCheck: all five tools round-trip"
+            runHook postInstallCheck
+          '';
           # Every object of this package is therefore native — including the ones
           # holding `main`. But the engine module hook's entry trampoline is
           # bitcode calling `extern main`, so with no `main` in module.bc it binds
@@ -90,6 +138,19 @@
                 echo "set_source_files_properties(src/$s.c PROPERTIES COMPILE_OPTIONS -flto)" >> CMakeLists.txt
               done
             '')
+            # Upstream applies its own `-DUSE_SETMODE` to cjpeg/djpeg/jpegtran
+            # only; `add_executable(rdjpgcom …)` / `(wrjpgcom …)` get no compile
+            # flags at all, so the `setmode(fileno(std…), O_BINARY)` calls both
+            # tools already carry are compiled out on Windows. wrjpgcom writes
+            # its JPEG to stdout and nowhere else (TWO_FILE_COMMANDLINE is not
+            # defined), so on Windows every file it produced came out with each
+            # 0x0A expanded to 0x0D 0x0A — a corrupt JPEG, always; rdjpgcom hit
+            # the same on stdin ("Premature EOF in JPEG file"). Define it here.
+            + lib.optionalString scope.stdenv.hostPlatform.isWindows ''
+              for t in rdjpgcom wrjpgcom; do
+                echo "target_compile_definitions($t PRIVATE USE_SETMODE)" >> CMakeLists.txt
+              done
+            ''
             + ''
               for t in cjpeg djpeg jpegtran; do
                 echo "set_target_properties($t-static PROPERTIES OUTPUT_NAME $t)" >> CMakeLists.txt
@@ -110,8 +171,13 @@
       # Man embedded (embedMan defaults to true): every target keeps cmake's own
       # install, which stages libjpeg-turbo's per-tool doc/<tool>.1 — so each
       # harvests its OWN man, no nixpkgs graft needed despite name ≠ attr.
-      # Multicall: `jpeg-tools <applet> [args]` dispatches by argv[0]; the bare
-      # binary takes the applet as its first arg. Smoke through that form.
+      # Multicall: the applet is chosen by argv[0] (the names `unpin install`
+      # puts on PATH) or by `--unpin-program=`; the bare binary lists them. It
+      # does NOT take the applet as a positional argument.
+      #
+      # The smoke is one command matched by one grep line, so it can only prove
+      # that one applet starts. The installCheck above is what actually runs all
+      # five.
       smoke = [ "--unpin-program=cjpeg" "-version" ];
       smokePattern = "libjpeg-turbo";
 
