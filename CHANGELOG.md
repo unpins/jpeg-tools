@@ -31,7 +31,7 @@
   `unpin jpeg-tools --unpin-program=cjpeg …`, or install the programs and call
   `cjpeg` directly.
 
-## [v3.1.4-1] — 2026-06-06
+## [3.1.4-1] - 2026-06-06
 
 Initial release: libjpeg-turbo 3.1.4's `cjpeg`, `djpeg`, `jpegtran`,
 `rdjpgcom` and `wrjpgcom` as one self-contained binary for Linux (x86_64,
