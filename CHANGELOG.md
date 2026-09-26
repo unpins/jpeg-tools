@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [3.1.4-2] - 2026-09-26
+
 ### Fixed
 
 - **`wrjpgcom` produced a corrupt JPEG on Windows — always.** It writes its
