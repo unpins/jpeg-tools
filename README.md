@@ -70,13 +70,12 @@ The [Releases](https://github.com/unpins/jpeg-tools/releases) page has standalon
 ## Build notes
 
 - libjpeg-turbo's five programs are combined into the single `jpeg-tools`
-  binary; the package is named after the tools, like `opus-tools`.
+  binary, named the way `opus-tools` is.
 - Pure C: `libjpeg.a` links statically into the binary. The TurboJPEG API and
   the regression-test programs are left out.
 - Every build encodes, decodes, rotates and comments a test image before it is
   accepted, so a program that starts but no longer works fails the build.
-- **Windows:** `mingw` cross, single `.exe`, no companion DLLs (`-static` folds
-  out libgcc/libwinpthread).
+- **Windows:** built with mingw-w64.
 - **macOS:** static `libjpeg.a`, links only `libSystem`.
 - **RISC-V:** the unused `simdcoverage` build helper (which references an RVV
   intrinsic the port doesn't declare) is dropped; the RVV SIMD in `libjpeg.a` is
