@@ -46,7 +46,7 @@ cjpeg -quality 90 -outfile out.jpg in.ppm
 ## Man pages
 
 `cjpeg.1`, `djpeg.1`, `jpegtran.1`, `rdjpgcom.1` and `wrjpgcom.1` are embedded in
-the binary — read with `unpin man jpeg-tools <tool>` (e.g. `unpin man jpeg-tools cjpeg`).
+the binary — read with `unpin man jpeg-tools <program>` (e.g. `unpin man jpeg-tools cjpeg`).
 
 ## Build locally
 
@@ -73,10 +73,11 @@ The [Releases](https://github.com/unpins/jpeg-tools/releases) page has standalon
   binary, named the way `opus-tools` is.
 - Pure C: `libjpeg.a` links statically into the binary. The TurboJPEG API and
   the regression-test programs are left out.
-- Every build encodes, decodes, rotates and comments a test image before it is
-  accepted, so a program that starts but no longer works fails the build.
+- **Tests:** libjpeg-turbo's suite runs on native builds (0 failures under
+  static-musl) and is skipped on cross targets the build host can't execute;
+  the same builds also run all five programs on a test image (encode, decode,
+  rotate, comment through a pipe).
 - **Windows:** built with mingw-w64.
-- **macOS:** static `libjpeg.a`, links only `libSystem`.
 - **RISC-V:** the unused `simdcoverage` build helper (which references an RVV
   intrinsic the port doesn't declare) is dropped; the RVV SIMD in `libjpeg.a` is
   untouched.
