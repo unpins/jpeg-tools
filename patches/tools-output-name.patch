@@ -1,0 +1,50 @@
+cjpeg/djpeg/jpegtran build as CMake targets `<tool>-static`, renamed to
+`<tool>` only at install. The engine captures each link sidecar under the link
+output name, so the self-fold's `cjpeg`/`djpeg`/`jpegtran` programs found no
+sidecar. Link them under their plain names and drop the install RENAME.
+
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -834,6 +834,7 @@
+     set_property(TARGET cjpeg-static PROPERTY COMPILE_FLAGS
+       ${CDJPEG_COMPILE_FLAGS})
+     target_link_libraries(cjpeg-static jpeg-static)
++    set_target_properties(cjpeg-static PROPERTIES OUTPUT_NAME cjpeg)
+ 
+     add_executable(djpeg-static src/djpeg.c src/cdjpeg.c
+       src/wrapper/rdcolmap-8.c src/wrapper/rdcolmap-12.c
+@@ -844,10 +845,12 @@
+     set_property(TARGET djpeg-static PROPERTY COMPILE_FLAGS
+       ${CDJPEG_COMPILE_FLAGS})
+     target_link_libraries(djpeg-static jpeg-static)
++    set_target_properties(djpeg-static PROPERTIES OUTPUT_NAME djpeg)
+ 
+     add_executable(jpegtran-static src/jpegtran.c src/cdjpeg.c src/rdswitch.c
+       src/transupp.c)
+     target_link_libraries(jpegtran-static jpeg-static)
++    set_target_properties(jpegtran-static PROPERTIES OUTPUT_NAME jpegtran)
+     set_property(TARGET jpegtran-static PROPERTY COMPILE_FLAGS
+       "${USE_SETMODE}")
+   endif()
+@@ -1885,15 +1888,12 @@
+       set(DIR ${CMAKE_CURRENT_BINARY_DIR})
+     endif()
+     if(WITH_TOOLS)
+-      install(PROGRAMS ${DIR}/cjpeg-static${EXE}
+-        DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} COMPONENT bin
+-        RENAME cjpeg${EXE})
+-      install(PROGRAMS ${DIR}/djpeg-static${EXE}
+-        DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} COMPONENT bin
+-        RENAME djpeg${EXE})
+-      install(PROGRAMS ${DIR}/jpegtran-static${EXE}
+-        DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} COMPONENT bin
+-        RENAME jpegtran${EXE})
++      install(PROGRAMS ${DIR}/cjpeg${EXE}
++        DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} COMPONENT bin)
++      install(PROGRAMS ${DIR}/djpeg${EXE}
++        DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} COMPONENT bin)
++      install(PROGRAMS ${DIR}/jpegtran${EXE}
++        DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} COMPONENT bin)
+     endif()
+   endif()
+ endif()

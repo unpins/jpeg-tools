@@ -1,5 +1,5 @@
 {
-  description = "the libjpeg-turbo command-line tools (cjpeg / djpeg / jpegtran / rdjpgcom / wrjpgcom) as a single self-contained binary";
+  description = "the libjpeg-turbo command-line programs (cjpeg / djpeg / jpegtran / rdjpgcom / wrjpgcom) as a single self-contained binary";
 
   nixConfig = {
     extra-substituters = [ "https://unpins.cachix.org" ];
@@ -15,7 +15,7 @@
   # comment-marker tools rdjpgcom / wrjpgcom. Here we turn the tools on
   # (WITH_TOOLS, default upstream) and let nix-lib self-fold all five into one
   # multicall `jpeg-tools` binary, following the avif/jxl/aom one-pkg-one-bin
-  # pattern. The library is named after the tools because CI resolves
+  # pattern. The package is named after the tools because CI resolves
   # result/bin/<name> (same convention as opus-tools / vorbis-tools).
   #
   # Pure C — no libstdc++/libc++ runtime to fold (simpler than the C++ codec
@@ -31,9 +31,9 @@
       withTools = scope:
         let
           lib = scope.lib;
-          # bmpsizetest below guards -flto, and only runs where the build host
-          # can execute the result (a cross target would need qemu). Everywhere
-          # else the test programs are dead weight — don't build them either.
+          # The upstream suite only runs where the build host can execute the
+          # result (a cross target would need qemu). Everywhere else the test
+          # programs are dead weight — don't build them either.
           check = scope.stdenv.buildPlatform.canExecute scope.stdenv.hostPlatform;
         in
         scope.libjpeg.overrideAttrs (old: {
@@ -50,14 +50,15 @@
             "-DWITH_TURBOJPEG=0"
             "-DWITH_TESTS=${if check then "1" else "0"}"
           ];
-          # Regression guard for the full-LTO miscompile of the BMP I/O modules:
-          # built with LTO, bmpsizetest hangs and then OOMs. It is why nix-lib
-          # pins libjpeg-turbo to the lto=false engine stdenv set-wide, and why
-          # the -flto below is kept as narrow as each platform allows.
+          # The whole upstream ctest suite. Its bmpsizetest also guards the
+          # full-LTO miscompile of the BMP I/O modules (built with LTO it hangs,
+          # then OOMs): why nix-lib pins libjpeg-turbo to the lto=false engine
+          # stdenv set-wide, and why the -flto below stays as narrow as each
+          # platform allows.
           doCheck = check;
-          checkPhase = "ctest -R bmpsizetest --output-on-failure --timeout 120";
+          checkPhase = "ctest -j$NIX_BUILD_CORES --output-on-failure --no-tests=error --timeout 300";
           # The windows .exe cannot be run from here, so the USE_SETMODE fix
-          # below has to be checked where it lands: in the object. `_setmode`
+          # (patches/windows-setmode.patch) has to be checked where it lands: in the object. `_setmode`
           # is in the shipped .exe either way (cdjpeg.c pulls it in for
           # cjpeg/djpeg/jpegtran), so only the per-tool object separates a
           # working build from the one that silently wrote CRLF into JPEGs.
@@ -105,63 +106,28 @@
             echo "installCheck: all five tools round-trip"
             runHook postInstallCheck
           '';
-          # Every object of this package is therefore native — including the ones
-          # holding `main`. But the engine module hook's entry trampoline is
-          # bitcode calling `extern main`, so with no `main` in module.bc it binds
-          # to the dispatcher's own `main` and every applet tail-loops forever.
-          # Compile the main-bearing translation units with -flto so each `main`
-          # reaches module.bc, keeping libjpeg.a itself native.
-          #
-          # And cjpeg/djpeg/jpegtran build as CMake targets `<tool>-static` (they
-          # link the static libjpeg.a), only RENAMEd to `<tool>` at install. The
-          # engine captures each link sidecar under the LINK output name, so
-          # without OUTPUT_NAME the sidecar is `cjpeg-static.link` and the
-          # self-fold's `programs = [ cjpeg … ]` can't find it. Set it, and drop
-          # the now-redundant install RENAME. rdjpgcom/wrjpgcom already build
-          # under their plain names.
-          postPatch = (old.postPatch or "") + (
-            # darwin needs MORE than the five: the hook's `ld.lld -r` is the ELF
-            # driver, and a loose Mach-O object is a hard error there ("unknown
-            # file type") where on ELF it is merely dropped into the sidecar. So
-            # every own object goes to bitcode; only libjpeg.a stays Mach-O, and
-            # an ARCHIVE member the ELF driver can't read is skipped (warning)
-            # and rescued, which is the case the hook is built for.
-            # bmpsizetest-static rides along — where it exists at all — so the
-            # guard below keeps testing the SAME codegen the shipped tools get
-            # (it compiles its own copies of rdbmp/wrbmp, LTO here, not on Linux).
-            (if scope.stdenv.hostPlatform.isDarwin then ''
-              for t in cjpeg-static djpeg-static jpegtran-static rdjpgcom wrjpgcom${lib.optionalString check " bmpsizetest-static"}; do
-                echo "target_compile_options($t PRIVATE -flto)" >> CMakeLists.txt
-              done
-            '' else ''
-              for s in cjpeg djpeg jpegtran rdjpgcom wrjpgcom; do
-                echo "set_source_files_properties(src/$s.c PROPERTIES COMPILE_OPTIONS -flto)" >> CMakeLists.txt
-              done
-            '')
-            # Upstream applies its own `-DUSE_SETMODE` to cjpeg/djpeg/jpegtran
-            # only; `add_executable(rdjpgcom …)` / `(wrjpgcom …)` get no compile
-            # flags at all, so the `setmode(fileno(std…), O_BINARY)` calls both
-            # tools already carry are compiled out on Windows. wrjpgcom writes
-            # its JPEG to stdout and nowhere else (TWO_FILE_COMMANDLINE is not
-            # defined), so on Windows every file it produced came out with each
-            # 0x0A expanded to 0x0D 0x0A — a corrupt JPEG, always; rdjpgcom hit
-            # the same on stdin ("Premature EOF in JPEG file"). Define it here.
-            + lib.optionalString scope.stdenv.hostPlatform.isWindows ''
-              for t in rdjpgcom wrjpgcom; do
-                echo "target_compile_definitions($t PRIVATE USE_SETMODE)" >> CMakeLists.txt
-              done
-            ''
-            + ''
-              for t in cjpeg djpeg jpegtran; do
-                echo "set_target_properties($t-static PROPERTIES OUTPUT_NAME $t)" >> CMakeLists.txt
-                # Make the install pick up the (now plain-named) binary instead of
-                # the RENAMEd `<tool>-static`. EXE is empty on the engine's Linux
-                # targets, so match the literal CMake tokens with empty EXE.
-                substituteInPlace CMakeLists.txt \
-                  --replace-fail "PROGRAMS \''${DIR}/$t-static\''${EXE}" "PROGRAMS \''${DIR}/$t\''${EXE}" \
-                  --replace-fail "RENAME $t\''${EXE})" ")"
-              done
-            '');
+          # libjpeg-turbo is built lto=false (above), so every object here is
+          # native, including the ones holding `main`; see
+          # patches/elf-lto-main.patch for why each `main` needs -flto, and
+          # patches/tools-output-name.patch for the link names.
+          patches = (old.patches or [ ])
+            ++ [ ./patches/tools-output-name.patch ]
+            ++ lib.optional scope.stdenv.hostPlatform.isWindows ./patches/windows-setmode.patch
+            ++ lib.optional (!scope.stdenv.hostPlatform.isDarwin) ./patches/elf-lto-main.patch;
+          # darwin needs MORE than the five: the hook's `ld.lld -r` is the ELF
+          # driver, and a loose Mach-O object is a hard error there ("unknown
+          # file type") where on ELF it is merely dropped into the sidecar. So
+          # every own object goes to bitcode; only libjpeg.a stays Mach-O, and
+          # an ARCHIVE member the ELF driver can't read is skipped (warning) and
+          # rescued, which is the case the hook is built for. bmpsizetest-static
+          # rides along where it exists, so the suite tests the SAME codegen
+          # the shipped tools get. Inline, not a .patch: the target list
+          # depends on `check`.
+          postPatch = (old.postPatch or "") + lib.optionalString scope.stdenv.hostPlatform.isDarwin ''
+            for t in cjpeg-static djpeg-static jpegtran-static rdjpgcom wrjpgcom${lib.optionalString check " bmpsizetest-static"}; do
+              echo "target_compile_options($t PRIVATE -flto)" >> CMakeLists.txt
+            done
+          '';
         });
 
     in

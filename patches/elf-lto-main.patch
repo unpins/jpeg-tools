@@ -1,0 +1,18 @@
+ELF targets: nix-lib builds libjpeg-turbo without LTO (a full-LTO miscompile
+of the BMP I/O modules: bmpsizetest hangs, then OOMs), so every object is
+native, including the ones holding `main`. The engine's entry trampoline is
+bitcode calling `extern main`; with no `main` in module.bc it binds the
+dispatcher's own and every program tail-loops. Compile the five main-bearing
+sources with -flto so each `main` reaches module.bc; libjpeg.a stays native.
+
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1963,3 +1963,8 @@
+   "cmake_uninstall.cmake" IMMEDIATE @ONLY)
+ 
+ add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P cmake_uninstall.cmake)
++set_source_files_properties(src/cjpeg.c PROPERTIES COMPILE_OPTIONS -flto)
++set_source_files_properties(src/djpeg.c PROPERTIES COMPILE_OPTIONS -flto)
++set_source_files_properties(src/jpegtran.c PROPERTIES COMPILE_OPTIONS -flto)
++set_source_files_properties(src/rdjpgcom.c PROPERTIES COMPILE_OPTIONS -flto)
++set_source_files_properties(src/wrjpgcom.c PROPERTIES COMPILE_OPTIONS -flto)

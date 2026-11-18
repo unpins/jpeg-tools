@@ -1,0 +1,17 @@
+Windows: upstream gives `-DUSE_SETMODE` to cjpeg/djpeg/jpegtran only, so the
+`setmode(fileno(std…), O_BINARY)` calls rdjpgcom and wrjpgcom already carry
+are compiled out. wrjpgcom writes its JPEG to stdout only, so every file it
+produced had each 0x0A expanded to 0x0D 0x0A (a corrupt JPEG, always), and
+rdjpgcom failed on stdin ("Premature EOF in JPEG file").
+
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -876,6 +876,8 @@
+   add_executable(rdjpgcom src/rdjpgcom.c)
+ 
+   add_executable(wrjpgcom src/wrjpgcom.c)
++  target_compile_definitions(rdjpgcom PRIVATE USE_SETMODE)
++  target_compile_definitions(wrjpgcom PRIVATE USE_SETMODE)
+ endif()
+ 
+ 
